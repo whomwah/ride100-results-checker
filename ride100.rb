@@ -13,31 +13,39 @@ class RideLondon
   end
 
   def process
+    results = []
+
+    while @current_page
+      scrape!
+
+      riders.each do |rider|
+        details = rider_details(rider)
+
+        if details[4] == '100 Miles'
+          results << details[0...headers.size]
+        end
+      end
+
+      @current_page += 1
+      sleep 1
+
+      if no_more_results?
+        @current_page = nil
+      end
+    end
+
+    results = results.sort_by { |result| result.last.gsub(':','').to_i }
+
     CSV.open("ridelondon100.csv", "wb") do |csv|
-      csv << headers
-
-      while @current_page
-        scrape!
-
-        riders.each do |rider|
-          details = rider_details(rider)
-          if details[4] == '100 Miles'
-            csv << details[0...headers.size]
-          end
-        end
-
-        @current_page += 1
-        sleep 1
-
-        if no_more_results?
-          @current_page = nil
-        end
+      csv << headers.unshift('Position')
+      results.each_with_index do |result, index|
+        csv << result.unshift(index+1)
       end
     end
   end
 
   def scrape!
-    puts "Checking: Page#{@current_page}"
+    puts "Checking: Page #{@current_page}"
     html = open(url)
 
     if html
